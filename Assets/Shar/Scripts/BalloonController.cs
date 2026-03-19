@@ -89,6 +89,79 @@ public class BalloonController : MonoBehaviour
 
     #region Unity Lifecycle
 
+    [Header("⚙️ Ограничение наклона")]
+    [SerializeField] private float maxTiltAngle = 30f; // максимальный угол наклона
+    private Quaternion targetRotation;
+
+    [Header("👤 Привязка игрока")]
+    public Transform playerRoot;          // Корень XR Origin (перетащите в инспекторе)
+    private Transform originalParent;      // Запоминаем исходного родителя
+
+    public void AttachPlayer(Transform player)
+    {
+        if (playerRoot == null) playerRoot = player;
+        originalParent = playerRoot.parent;
+        playerRoot.SetParent(transform, true);   // true — сохраняем мировую позицию
+        Debug.Log("[Balloon] Игрок прикреплён к шару");
+    }
+
+    public void DetachPlayer()
+    {
+        if (playerRoot != null)
+        {
+            playerRoot.SetParent(originalParent, true);
+            Debug.Log("[Balloon] Игрок откреплён от шара");
+        }
+    }
+
+
+
+    // Добавьте в FixedUpdate после ApplyLiftForce()
+    private void FixedUpdate()
+    {
+        if (!isActive) return;
+
+        frameCounter++;
+
+        UpdateTemperature(Time.fixedDeltaTime);
+        UpdateFuel(Time.fixedDeltaTime);
+        CalculateForces();
+        ApplyLiftForce();
+
+        // 🔽 НОВЫЙ БЛОК: ограничение вращения
+        ClampRotation();
+
+        altitude = transform.position.y;
+        verticalSpeed = rb.velocity.y;
+
+        if (debugMode && frameCounter % 60 == 0)
+            LogStatus();
+    }
+
+    private void ClampRotation()
+    {
+        // Получаем текущие углы Эйлера (локальные)
+        Vector3 currentEuler = transform.localEulerAngles;
+
+        // Приводим углы к диапазону -180..180 для удобства
+        float angleX = NormalizeAngle(currentEuler.x);
+        float angleZ = NormalizeAngle(currentEuler.z);
+
+        // Ограничиваем
+        angleX = Mathf.Clamp(angleX, -maxTiltAngle, maxTiltAngle);
+        angleZ = Mathf.Clamp(angleZ, -maxTiltAngle, maxTiltAngle);
+
+        // Применяем обратно, сохраняя вращение по Y (рыскание) свободным
+        transform.localEulerAngles = new Vector3(angleX, currentEuler.y, angleZ);
+    }
+
+    // Вспомогательная функция для приведения угла к [-180, 180]
+    private float NormalizeAngle(float angle)
+    {
+        while (angle > 180f) angle -= 360f;
+        while (angle < -180f) angle += 360f;
+        return angle;
+    }
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
@@ -123,23 +196,6 @@ public class BalloonController : MonoBehaviour
         Debug.Log($"[Balloon] ⚠️ Нужно нагреть до {liftOffTemperature}°C для взлёта!");
     }
 
-    private void FixedUpdate()
-    {
-        if (!isActive) return;
-
-        frameCounter++;
-
-        UpdateTemperature(Time.fixedDeltaTime);
-        UpdateFuel(Time.fixedDeltaTime);
-        CalculateForces();
-        ApplyLiftForce();
-
-        altitude = transform.position.y;
-        verticalSpeed = rb.velocity.y;
-
-        if (debugMode && frameCounter % 60 == 0)
-            LogStatus();
-    }
 
     private void Update()
     {

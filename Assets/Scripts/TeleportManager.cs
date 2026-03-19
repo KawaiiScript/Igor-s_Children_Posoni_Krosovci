@@ -13,23 +13,26 @@ public class TeleportManager : MonoBehaviour
 
     [Header("🎨 Визуал")]
     [SerializeField] private Material mat;
-    [SerializeField] private LayerMask groundMask;
+    [SerializeField] private LayerMask groundMask;   // слой для телепортации по земле
+    [SerializeField] private LayerMask balloonMask;  // слой для телепортации в шаре
     [SerializeField] private float rayLength = 10f;
 
     [Header("🎯 Настройки")]
-    [SerializeField] private Transform nushSlon;
+    [SerializeField] private Transform nushSlon;      // корневой трансформ игрока (XR Origin)
     [SerializeField] private float forwardThreshold = 0.7f;
+
+    [Header("🎈 Шар (автоматически найдётся, если не указан)")]
+    [SerializeField] private BalloonEnterTrigger inShar; // триггер входа в шар
 
     [Header("🐛 Debug")]
     [SerializeField] private bool showDebugLogs = true;
 
-    public BalloonEnterTrigger inShar;
     private RaycastHit hit;
     private LineRenderer lineRenderer;
     private GameObject sphere;
     private Coroutine movement = null;
     private bool _isTeleportActive = false;
-    private bool _isValidTeleport = false;  // 🔹 Флаг: валидная ли точка
+    private bool _isValidTeleport = false;
 
     private void Awake()
     {
@@ -56,6 +59,16 @@ public class TeleportManager : MonoBehaviour
             if (origin != null) nushSlon = origin.transform;
         }
 
+        // 🔍 Автоматический поиск триггера шара, если не назначен
+        if (inShar == null)
+        {
+            inShar = FindObjectOfType<BalloonEnterTrigger>();
+            if (inShar != null)
+                DebugLog("✅ BalloonEnterTrigger найден автоматически");
+            else
+                DebugLog("⚠️ BalloonEnterTrigger не найден в сцене");
+        }
+
         if (teleportAction == null)
             DebugLog("❌ teleportAction: НЕ НАЗНАЧЕН!");
         else if (teleportAction.action == null)
@@ -63,6 +76,7 @@ public class TeleportManager : MonoBehaviour
         else
             DebugLog($"✅ teleportAction: {teleportAction.action.name}");
     }
+   
 
     private void OnEnable()
     {
@@ -82,101 +96,113 @@ public class TeleportManager : MonoBehaviour
     private void Update()
     {
         if (teleportAction?.action == null) return;
-        if (inShar.isPlayerInBalloon == false)
+
+        // Читаем Vector2 с джойстика
+        Vector2 joystick = teleportAction.action.ReadValue<Vector2>();
+        bool isForward = joystick.y >= forwardThreshold;
+
+        // Начало прицеливания
+        if (isForward && !_isTeleportActive)
         {
-            // 🔹 Читаем Vector2 с джойстика
-            Vector2 joystick = teleportAction.action.ReadValue<Vector2>();
-            bool isForward = joystick.y >= forwardThreshold;
+            DebugLog("🟡 Start Aiming");
+            _isTeleportActive = true;
+            _isValidTeleport = false;
+        }
+        // Завершение прицеливания
+        else if (!isForward && _isTeleportActive)
+        {
+            DebugLog("🔴 Stop Aiming");
+            _isTeleportActive = false;
 
-            // 🔹 1. Джойстик нажат ВПЕРЁД — начинаем прицеливание
-            if (isForward && !_isTeleportActive)
+            if (_isValidTeleport && hit.collider != null)
             {
-                DebugLog("🟡 Start Aiming");
-                _isTeleportActive = true;
-                _isValidTeleport = false;  // Сбрасываем валидность
+                DebugLog($"🚀 TELEPORT to: {hit.point}");
+                movement = StartCoroutine(SmoothMove(nushSlon.position, hit.point, 0.1f));
             }
-            // 🔹 2. Джойстик отпущен — заканчиваем прицеливание
-            else if (!isForward && _isTeleportActive)
+            else
             {
-                DebugLog("🔴 Stop Aiming");
-                _isTeleportActive = false;
-
-                // 🔹 ТЕЛЕПОРТИРУЕМСЯ только если точка валидна!
-                if (_isValidTeleport && hit.collider != null)
-                {
-                    DebugLog($"🚀 TELEPORT to: {hit.point}");
-                    movement = StartCoroutine(SmoothMove(nushSlon.transform.position, hit.point, 0.1f));
-                }
-                else
-                {
-                    DebugLog("⚠️ Телепортация отменена — нет валидной точки");
-                }
-
-                // Скрываем всё
-                lineRenderer.enabled = false;
-                sphere.SetActive(false);
-                _isValidTeleport = false;
+                DebugLog("⚠️ Телепортация отменена — нет валидной точки");
             }
 
-            // 🔹 3. Если прицеливание активно — ОБНОВЛЯЕМ луч КАЖДЫЙ КАДР
-            if (_isTeleportActive)
-            {
-                UpdateRaycast();
-            }
+            lineRenderer.enabled = false;
+            sphere.SetActive(false);
+            _isValidTeleport = false;
+        }
+
+        // Обновление луча при активном прицеливании
+        if (_isTeleportActive)
+        {
+            UpdateRaycast();
         }
     }
 
-    /// <summary>
-    /// Обновление луча — следует за рукой + проверка границ
-    /// </summary>
     private void UpdateRaycast()
     {
-        // 🔹 Пускаем луч ИЗ ТЕКУЩЕЙ ПОЗИЦИИ РУКИ
+        // Определяем, какую маску использовать
+        bool inBalloon = (inShar != null && inShar.isPlayerInBalloon);
+        LayerMask currentMask = inBalloon ? balloonMask : groundMask;
+
         Ray ray = new Ray(transform.position, transform.forward);
-
-        if (Physics.Raycast(ray, out hit, rayLength, groundMask))
+        if (Physics.Raycast(ray, out hit, rayLength, currentMask))
         {
-            // ✅ Попадание в землю — показываем луч
             _isValidTeleport = true;
-
             lineRenderer.enabled = true;
-            lineRenderer.SetPosition(0, transform.position);  // 🔹 Начало луча = позиция РУКИ
-            lineRenderer.SetPosition(1, hit.point);            // 🔹 Конец луча = точка попадания
-
+            lineRenderer.SetPosition(0, transform.position);
+            lineRenderer.SetPosition(1, hit.point);
             sphere.SetActive(true);
             sphere.transform.position = hit.point;
 
             if (showDebugLogs && Time.frameCount % 30 == 0)
-                DebugLog($"✅ Raycast OK: {hit.point}");
+                DebugLog($"✅ Raycast OK: {hit.point} (Mask: {currentMask.value})");
         }
         else
         {
-            // ❌ Нет попадания (за границей) — СКРЫВАЕМ луч
             _isValidTeleport = false;
-
             lineRenderer.enabled = false;
             sphere.SetActive(false);
 
             if (showDebugLogs && Time.frameCount % 30 == 0)
-                DebugLog("❌ Raycast MISS — за границей");
+                DebugLog($"❌ Raycast MISS — маска {currentMask.value}");
         }
     }
 
-    private IEnumerator SmoothMove(Vector3 startPos, Vector3 endPos, float step)
+    private IEnumerator SmoothMove(Vector3 startPosWorld, Vector3 endPosWorld, float step)
     {
-        float s = 0;
-        Vector3 currentPos = startPos;
+        // Проверяем, находимся ли в шаре и есть ли ссылка на BalloonController
+        bool inBalloon = (inShar != null && inShar.isPlayerInBalloon && inShar.balloonController != null);
+        Transform balloon = inShar?.balloonController?.transform;
 
-        while ((currentPos - endPos).magnitude > 0.01f)
+        if (inBalloon && balloon != null)
         {
-            s += step;
-            nushSlon.transform.position = Vector3.Lerp(startPos, endPos, Mathf.Clamp01(s));
-            currentPos = nushSlon.transform.position;
-            yield return null;
+            // Локальная телепортация внутри шара
+            Vector3 startLocal = nushSlon.localPosition; // текущая позиция внутри шара
+            Vector3 endLocal = balloon.InverseTransformPoint(endPosWorld); // мировая → локальная
+
+            float s = 0;
+            while (s < 1f)
+            {
+                s += step;
+                nushSlon.localPosition = Vector3.Lerp(startLocal, endLocal, Mathf.Clamp01(s));
+                yield return null;
+            }
+            nushSlon.localPosition = endLocal; // финальная точность
+            DebugLog("✅ Локальная телепортация внутри шара завершена");
+        }
+        else
+        {
+            // Обычная мировая телепортация (на земле или вне шара)
+            float s = 0;
+            while (s < 1f)
+            {
+                s += step;
+                nushSlon.position = Vector3.Lerp(startPosWorld, endPosWorld, Mathf.Clamp01(s));
+                yield return null;
+            }
+            nushSlon.position = endPosWorld;
+            DebugLog("✅ Мировая телепортация завершена");
         }
 
         movement = null;
-        DebugLog("✅ Телепортация завершена!");
     }
 
     private void DebugLog(string message)
@@ -185,16 +211,13 @@ public class TeleportManager : MonoBehaviour
             Debug.Log($"[TeleportManager] {message}");
     }
 
-    // 🔹 Визуализация в Scene View
     private void OnDrawGizmos()
     {
         if (!Application.isPlaying) return;
 
-        // Показываем направление контроллера
         Gizmos.color = Color.cyan;
         Gizmos.DrawRay(transform.position, transform.forward * 2f);
 
-        // Точка попадания
         if (_isValidTeleport && hit.collider != null)
         {
             Gizmos.color = Color.green;

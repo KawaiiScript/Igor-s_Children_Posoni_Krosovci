@@ -6,6 +6,19 @@ TagManager:
   tags:
   - Hand
   - Anchor
+  - TeleportIgnore
+  - ExcludeTeleport
+  - Leg
+  - SnapCube
+  - Arm
+  - SnapCylinder
+  - Saucers
+  - Torso
+  - Head
+  - Projectile
+  - Flame
+  - Water
+  - Destroyer
   layers:
   - Default
   - TransparentFX
@@ -15,10 +28,10 @@ TagManager:
   - UI
   - Floor
   - Balloon
-  - 
-  - 
-  - 
-  - 
+  - BalFloor
+  - Hand
+  - Lever
+  - Player
   - 
   - 
   - 
