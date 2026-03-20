@@ -395,7 +395,7 @@ public class BalloonController : MonoBehaviour
     private void OnCollisionEnter(Collision collision)
     {
         float impact = collision.relativeVelocity.magnitude;
-        if (impact > 10f)
+        if (impact > 4f)
         {
             Debug.LogError($"[Balloon] 💀 Крушение! {impact:F1} м/с");
             if (audioSource != null && crashSound != null)

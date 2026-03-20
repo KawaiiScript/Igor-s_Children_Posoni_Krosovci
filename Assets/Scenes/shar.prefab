@@ -1880,6 +1880,7 @@ MonoBehaviour:
   isActive: 0
   isPlayerInBalloon: 0
   startHeight: 5
+  maxTiltAngle: 30
   internalTemp: 0
   externalTemp: 0
   liftForce: 0
@@ -1889,9 +1890,8 @@ MonoBehaviour:
   verticalSpeed: 0
   fuelPercent: 0
   state: 1
-  burnerSound: {fileID: 0}
-  crashSound: {fileID: 0}
-  maxTiltAngle: 30
+  burnerSound: {fileID: 8300000, guid: 9bd09497218006a4e8051d99332d011b, type: 3}
+  crashSound: {fileID: 8300000, guid: db17965ff5d8a8d45948a98f02c2720a, type: 3}
   playerRoot: {fileID: 0}
 --- !u!54 &7665896095745710747
 Rigidbody:

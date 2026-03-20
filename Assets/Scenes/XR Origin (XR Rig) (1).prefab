@@ -60,6 +60,7 @@ MonoBehaviour:
   forwardThreshold: 0.7
   inShar: {fileID: 0}
   showDebugLogs: 1
+  width: 0.02
 --- !u!120 &5957266004794741091
 LineRenderer:
   serializedVersion: 2
