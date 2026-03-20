@@ -19,6 +19,9 @@ TagManager:
   - Flame
   - Water
   - Destroyer
+  - StartZone
+  - FinishZone
+  - Wall
   layers:
   - Default
   - TransparentFX

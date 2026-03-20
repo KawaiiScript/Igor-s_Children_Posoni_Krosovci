@@ -265,7 +265,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd19a7ba4cdc52f459c8b9fbc865e960, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sceneIndex: 4
+  sceneIndex: 3
   fadeDuration: 1
 --- !u!114 &23937968
 MonoBehaviour:
@@ -1435,7 +1435,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd19a7ba4cdc52f459c8b9fbc865e960, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sceneIndex: 6
+  sceneIndex: 5
   fadeDuration: 1
 --- !u!114 &191105512
 MonoBehaviour:
@@ -3610,7 +3610,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd19a7ba4cdc52f459c8b9fbc865e960, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sceneIndex: 2
+  sceneIndex: 1
   fadeDuration: 1
 --- !u!114 &547021003
 MonoBehaviour:
@@ -4321,7 +4321,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd19a7ba4cdc52f459c8b9fbc865e960, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sceneIndex: 3
+  sceneIndex: 2
   fadeDuration: 1
 --- !u!114 &720193863
 MonoBehaviour:
@@ -5607,7 +5607,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd19a7ba4cdc52f459c8b9fbc865e960, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sceneIndex: 8
+  sceneIndex: 7
   fadeDuration: 1
 --- !u!114 &960430936
 MonoBehaviour:
@@ -7890,7 +7890,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd19a7ba4cdc52f459c8b9fbc865e960, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sceneIndex: 1
+  sceneIndex: 0
   fadeDuration: 1
 --- !u!114 &1329324515
 MonoBehaviour:
@@ -9007,7 +9007,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd19a7ba4cdc52f459c8b9fbc865e960, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sceneIndex: 5
+  sceneIndex: 4
   fadeDuration: 1
 --- !u!114 &1628560355
 MonoBehaviour:
