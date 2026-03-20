@@ -1,153 +1,84 @@
 ﻿using UnityEngine;
-using UnityEngine.UI;
-
-/// <summary>
-/// VRButton - Кнопка для VR через Unity Button компонент
-/// Все действия настраиваются через Button.onClick в Inspector
-/// </summary>
+using UnityEngine.SceneManagement;
+using UnityEngine.XR.Interaction.Toolkit;
 public class VRButton : MonoBehaviour
 {
+    // 🔽 Выбираем режим в Инспекторе
+    public enum ActionMode { RestartScene, GoToMenu, CloseMenu }
+
     [Header("⚙️ Настройки")]
-    [Tooltip("Тег объекта который может нажать кнопку")]
-    public string requiredTag = "XRController";
+    [Tooltip("Что сделает эта кнопка")]
+    public ActionMode mode = ActionMode.RestartScene;
 
-    [Header("🎨 Визуал")]
-    [Tooltip("Button компонент (автоматически находится)")]
-    public Button button;
+    [Tooltip("Тег объекта-руки (контроллера)")]
+    public string handTag = "Hand";
 
-    [Tooltip("Цвет при наведении")]
-    public Color hoverColor = Color.yellow;
+    [Tooltip("Защита от повторных нажатий (сек)")]
+    public float clickCooldown = 0.3f;
 
-    [Tooltip("Цвет в обычном состоянии")]
-    public Color normalColor = Color.white;
+    [Tooltip("Вибрация при нажатии (сила 0-1)")]
+    public float hapticStrength = 0.4f;
 
-    [Header("🐛 Debug")]
-    public bool showDebug = true;
+    [Tooltip("Длительность вибрации")]
+    public float hapticDuration = 0.1f;
 
-    private bool _isHovered = false;
-    private Collider _buttonCollider;
-    private Image _buttonImage;
-    private Color _originalColor;
+    // 🔒 Приватные поля
+    private bool _canClick = true;
+    private XRController _handController; // Для вибрации
 
-    private void Awake()
+    // 🎯 Основной метод выполнения действия
+    public void Execute()
     {
-        // 🔹 Автопоиск Button компонента
-        if (button == null)
-            button = GetComponent<Button>();
+        if (!_canClick) return;
+        _canClick = false;
+        Invoke(nameof(ResetClick), clickCooldown); // Кулдаун
 
-        // 🔹 Автопоиск Image для цвета
-        if (button != null)
+        // 📳 Вибрация (если нашли контроллер)
+        if (_handController != null)
+            _handController.SendHapticImpulse(hapticStrength, hapticDuration);
+
+        // ▶️ Выполняем действие
+        switch (mode)
         {
-            _buttonImage = button.targetGraphic as Image;
-        }
-        else
-        {
-            _buttonImage = GetComponent<Image>();
-        }
+            case ActionMode.RestartScene:
+                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+                break;
 
-        // 🔹 Сохраняем оригинальный цвет
-        if (_buttonImage != null)
-            _originalColor = _buttonImage.color;
+            case ActionMode.GoToMenu:
+                SceneManager.LoadScene(0);
+                break;
 
-        // 🔹 Автодобавление коллайдера
-        _buttonCollider = GetComponent<Collider>();
-        if (_buttonCollider == null)
-        {
-            _buttonCollider = gameObject.AddComponent<BoxCollider>();
-            _buttonCollider.isTrigger = true;
+            case ActionMode.CloseMenu:
+                if (VRMenuController.Instance != null)
+                    VRMenuController.Instance.CloseMenu();
+                break;
         }
 
-        // 🔹 Отключаем стандартный клик мышью (для VR)
-        if (button != null)
-            button.interactable = false;
+        Debug.Log($"[Button] Выполнено: {mode}");
     }
 
-    private void Start()
-    {
-        UpdateVisuals();
+    // 🔁 Сброс кулдауна
+    private void ResetClick() => _canClick = true;
 
-        if (showDebug)
-            Debug.Log($"[VRButton] ✅ Инициализировано: {name}");
-    }
-
-    // =================================================================
-    // TRIGGER EVENTS
-    // =================================================================
-
+    // 👋 Когда рука заходит в триггер кнопки
     private void OnTriggerEnter(Collider other)
     {
-        if (other?.gameObject == null) return;
-        if (!other.gameObject.CompareTag(requiredTag)) return;
+        if (other.CompareTag(handTag))
+        {
+            // Пытаемся найти контроллер для вибрации
+            if (_handController == null)
+                _handController = other.GetComponentInParent<XRController>();
 
-        _isHovered = true;
-
-        if (showDebug)
-            Debug.Log($"[VRButton] 🟡 Hover: {other.name}");
-        button?.onClick.Invoke();
-        UpdateVisuals();
+            Execute();
+        }
     }
 
+    // 🔍 Опционально: отладка выхода руки
     private void OnTriggerExit(Collider other)
     {
-        if (other?.gameObject == null) return;
-        if (!other.gameObject.CompareTag(requiredTag)) return;
-
-        _isHovered = false;
-
-        if (showDebug)
-            Debug.Log($"[VRButton] ⚪ Exit: {other.name}");
-
-        UpdateVisuals();
-    }
-
-    // =================================================================
-    // PUBLIC METHODS
-    // =================================================================
-
-    /// <summary>
-    /// Вызывается из VRButtonTrigger при нажатии триггера
-    /// </summary>
-    public void Press()
-    {
-        if (!_isHovered)
+        if (other.CompareTag(handTag))
         {
-            if (showDebug)
-                Debug.LogWarning("[VRButton] ❌ Нет наведения!");
-            return;
+            Debug.Log($"[Button] Рука вышла из {gameObject.name}");
         }
-
-        if (showDebug)
-            Debug.Log($"[VRButton] ✅ НАЖАТИЕ: {name}");
-
-        // 🔥 ВЫЗЫВАЕМ Button.onClick — здесь ваши функции!
-        button?.onClick.Invoke();
-
-        // Сброс наведения
-        _isHovered = false;
-        UpdateVisuals();
-    }
-
-    // =================================================================
-    // PRIVATE METHODS
-    // =================================================================
-
-    private void UpdateVisuals()
-    {
-        if (_buttonImage == null) return;
-
-        if (_isHovered)
-            _buttonImage.color = hoverColor;
-        else
-            _buttonImage.color = _originalColor;
-    }
-
-    // =================================================================
-    // EDITOR GIZMOS
-    // =================================================================
-
-    private void OnDrawGizmosSelected()
-    {
-        Gizmos.color = _isHovered ? Color.yellow : Color.blue;
-        Gizmos.DrawWireCube(transform.position, transform.lossyScale);
     }
 }

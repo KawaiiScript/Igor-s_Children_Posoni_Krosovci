@@ -77,7 +77,7 @@ public class BalloonEnterTrigger : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
         // 🔹 Вход в зону — показываем подсказку
-        if (other.CompareTag("Player") || other.CompareTag("Hand") || other.CompareTag("XRController"))
+        if (other.CompareTag("Player") || other.CompareTag("Hand"))
         {
             currentPlayer = other.gameObject;
             DebugLog($"[BalloonEnter] ✅ Игрок в зоне: {other.name}");
@@ -88,7 +88,7 @@ public class BalloonEnterTrigger : MonoBehaviour
     private void OnTriggerExit(Collider other)
     {
         // 🔹 Выход из зоны — скрываем подсказку (но не выходим из шара!)
-        if (other.CompareTag("Player") || other.CompareTag("Hand") || other.CompareTag("XRController"))
+        if (other.CompareTag("Player") || other.CompareTag("Hand"))
         {
             DebugLog($"[BalloonEnter] ❌ Игрок вышел из зоны: {other.name}");
             HidePrompt();

@@ -1,12 +1,11 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.XR.Interaction.Toolkit;
 using System.Collections;
-
+using UnityEngine.XR.Interaction.Toolkit;
 /// <summary>
-/// VRMenuController_XR - Контроллер VR меню для XR Interaction Toolkit
+/// VRMenuController - Версия только с триггерами (без лучей)
 /// Автор: NTO VR Final Helper
-/// Версия: 2.0
+/// Версия: 3.0 (Trigger Only)
 /// </summary>
 public class VRMenuController : MonoBehaviour
 {
@@ -18,6 +17,7 @@ public class VRMenuController : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
+            DontDestroyOnLoad(gameObject); // Опционально: чтобы меню не сбрасывалось при смене сцен
         }
         else
         {
@@ -29,57 +29,37 @@ public class VRMenuController : MonoBehaviour
 
     #region Настройки
     [Header("🎮 XR Input")]
-    [Tooltip("XR Controller для этого меню")]
+    [Tooltip("XR Controller (нужен для вибрации и позиции)")]
     public XRController xrController;
 
-    [Tooltip("Действие для открытия меню")]
+    [Tooltip("Действие для открытия/закрытия самого меню")]
     public InputActionReference menuAction;
 
-    [Tooltip("Действие для выбора/триггера")]
-    public InputActionReference selectAction;
-
-    [Header("🔦 Луч")]
-    [Tooltip("Длина луча")]
-    public float rayLength = 10f;
-
-    [Tooltip("Объект-указатель на конце луча")]
-    public GameObject pointerTip;
-
-    [Tooltip("Слои для игнорирования")]
-    public LayerMask ignoreLayers;
-
-    [Header("📳 Вибрация")]
-    [Tooltip("Сила вибрации при наведении (0-1)")]
-    public float hoverHapticStrength = 0.3f;
-
-    [Tooltip("Длительность вибрации")]
-    public float hapticDuration = 0.1f;
-
     [Header("🎭 Меню")]
-    [Tooltip("Объект меню")]
+    [Tooltip("Объект меню (панель с кнопками)")]
     public GameObject menuObject;
 
     [Tooltip("Контроллер позиции меню")]
     public MenuPositionController1 menuPositionController;
 
-    [Tooltip("Анимация открытия")]
+    [Tooltip("Анимация открытия/закрытия")]
     public bool useAnimation = true;
-
-    [Tooltip("Длительность анимации")]
     public float animationDuration = 0.3f;
 
-    [Tooltip("Расстояние от головы до меню")]
+    [Tooltip("Расстояние от головы до меню при открытии")]
     public float menuDistance = 1.5f;
+
+    [Header("📳 Вибрация")]
+    public float hoverHapticStrength = 0.3f;
+    public float hapticDuration = 0.1f;
     #endregion
 
     #region Приватные поля
     private bool _isMenuOpen = false;
     private Vector3 _originalScale;
-    private LineRenderer _rayLine;
-    private GameObject _hoveredObject;
-    private UnityEngine.XR.Interaction.Toolkit.Interactors.XRRayInteractor _rayInteractor;
     private Coroutine _animCoroutine;
     private Transform _headTransform;
+    private string _hoveredTag; // Храним тег объекта, на котором висит курсор
     #endregion
 
     #region События
@@ -99,13 +79,10 @@ public class VRMenuController : MonoBehaviour
     {
         if (menuAction?.action != null)
             menuAction.action.performed -= OnMenuActionPerformed;
-        if (selectAction?.action != null)
-            selectAction.action.performed -= OnSelectActionPerformed;
     }
 
     private void Update()
     {
-        UpdateRayPointer();
         CheckFallbackInput();
     }
     #endregion
@@ -113,42 +90,15 @@ public class VRMenuController : MonoBehaviour
     #region Инициализация
     private void InitializeComponents()
     {
-        // 🔍 Найти камеру (голову)
         _headTransform = Camera.main?.transform;
         if (_headTransform == null)
-        {
             Debug.LogError("[VRMenu] Камера не найдена!");
-        }
 
-        // 💾 Сохраняем масштаб меню
         if (menuObject != null)
             _originalScale = menuObject.transform.localScale;
 
-        // 🎮 Получаем или создаём XRController
         if (xrController == null)
             xrController = GetComponent<XRController>();
-
-        if (xrController == null)
-        {
-            Debug.LogWarning("[VRMenu] XRController не найден на этом объекте!");
-        }
-
-        // 🔦 Получаем интерактор (луч)
-        _rayInteractor = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactors.XRRayInteractor>();
-        if (_rayInteractor == null)
-        {
-            _rayInteractor = gameObject.AddComponent<UnityEngine.XR.Interaction.Toolkit.Interactors.XRRayInteractor>();
-            Debug.Log("[VRMenu] XRRayInteractor добавлен");
-        }
-
-        // 🎨 Настраиваем луч
-        SetupRayPointer();
-
-        // 🔗 Проверяем MenuPositionController
-        if (menuPositionController == null)
-        {
-            menuPositionController = FindObjectOfType<MenuPositionController1>();
-        }
     }
 
     private void SetupInput()
@@ -157,28 +107,11 @@ public class VRMenuController : MonoBehaviour
         {
             menuAction.action.performed += OnMenuActionPerformed;
             menuAction.action.Enable();
-            Debug.Log("[VRMenu] Menu Action подключён");
         }
         else
         {
-            Debug.LogWarning("[VRMenu] Menu Action не назначен! Используйте клавиатуру (M/Escape)");
+            Debug.LogWarning("[VRMenu] Menu Action не назначен! Работают только клавиши M/Escape");
         }
-
-        if (selectAction?.action != null)
-        {
-            selectAction.action.performed += OnSelectActionPerformed;
-            selectAction.action.Enable();
-        }
-    }
-
-    private void SetupRayPointer()
-    {
-        _rayLine = gameObject.AddComponent<LineRenderer>();
-        _rayLine.positionCount = 2;
-        _rayLine.startWidth = _rayLine.endWidth = 0.002f;
-        _rayLine.material = new Material(Shader.Find("Unlit/Color"));
-        _rayLine.startColor = _rayLine.endColor = Color.white;
-        _rayLine.enabled = true;
     }
     #endregion
 
@@ -188,83 +121,47 @@ public class VRMenuController : MonoBehaviour
         ToggleMenu();
     }
 
-    private void OnSelectActionPerformed(InputAction.CallbackContext context)
-    {
-        // Обработка клика лучом
-        if (_hoveredObject != null)
-        {
-            if (_hoveredObject.CompareTag("MenuToggleButton"))
-                ToggleMenu();
-        }
-    }
-
     private void CheckFallbackInput()
     {
-        // Резервная проверка для редактора
         if (Input.GetKeyDown(KeyCode.M) || Input.GetKeyDown(KeyCode.Escape))
-        {
             ToggleMenu();
-        }
     }
     #endregion
 
-    #region Луч + Вибрация
-    private void UpdateRayPointer()
+    #region Физика триггеров (Взаимодействие с кнопками)
+    // Вызывается, когда контроллер входит в триггер кнопки
+    private void OnTriggerEnter(Collider other)
     {
-        if (_rayLine == null) return;
+        if (!_isMenuOpen) return; // Игнорируем, если меню закрыто
 
-        // 🎯 Пускаем луч
-        Ray ray = new Ray(transform.position, transform.forward);
-        RaycastHit hit;
-        bool didHit = Physics.Raycast(ray, out hit, rayLength, ~ignoreLayers);
+        _hoveredTag = other.CompareTag("MenuToggleButton") ? "MenuToggleButton" : null;
 
-        // 📏 Визуал
-        Vector3 endPos = didHit ? hit.point : transform.position + transform.forward * rayLength;
-        _rayLine.SetPosition(0, transform.position);
-        _rayLine.SetPosition(1, endPos);
-
-        if (pointerTip != null)
+        if (_hoveredTag != null)
         {
-            pointerTip.transform.position = endPos;
-            pointerTip.SetActive(didHit);
+            TriggerHaptic(hoverHapticStrength); // Вибрация при наведении
+            Debug.Log($"[VRMenu] Наведение на: {other.name}");
         }
-
-        // 🔄 Наведение
-        GameObject newTarget = didHit ? hit.collider.gameObject : null;
-        if (newTarget != _hoveredObject)
-        {
-            if (_hoveredObject != null) TriggerHaptic(0.1f);
-            if (newTarget != null) TriggerHaptic(hoverHapticStrength);
-            _hoveredObject = newTarget;
-        }
-
-        // 👆 Клик по объекту
-        if (_hoveredObject != null && IsSelectPressed())
-        {
-            if (_hoveredObject.CompareTag("MenuToggleButton"))
-                ToggleMenu();
-        }
-
-        // 🎨 Цвет луча
-        _rayLine.startColor = _rayLine.endColor =
-            _hoveredObject != null ? Color.yellow : Color.white;
     }
 
-    private bool IsSelectPressed()
+    // Вызывается, когда контроллер выходит из триггера кнопки
+    private void OnTriggerExit(Collider other)
     {
-        if (selectAction?.action != null && selectAction.action.enabled)
+        if (other.CompareTag("MenuToggleButton"))
         {
-            if (selectAction.action.ReadValue<float>() > 0.5f)
-                return true;
+            _hoveredTag = null;
         }
-        return Input.GetMouseButtonDown(0);
     }
 
-    private void TriggerHaptic(float strength)
+    // Вызывается, когда нажимается триггер контроллера (кнопка выбора)
+    // Назначьте это событие в инспекторе на XR Controller -> Select Action
+    public void OnSelectPressed()
     {
-        if (xrController != null)
+        if (!_isMenuOpen || string.IsNullOrEmpty(_hoveredTag)) return;
+
+        if (_hoveredTag == "MenuToggleButton")
         {
-            xrController.SendHapticImpulse(strength, hapticDuration);
+            ToggleMenu(); // Закрываем меню при выборе
+            Debug.Log("[VRMenu] Клик по кнопке меню!");
         }
     }
     #endregion
@@ -283,22 +180,15 @@ public class VRMenuController : MonoBehaviour
         _isMenuOpen = true;
         menuObject.SetActive(true);
 
-        // 🔹 Позиционируем меню перед головой
         PositionMenuInFrontOfHead();
 
-        // 🔹 Анимация
         if (useAnimation)
         {
             if (_animCoroutine != null) StopCoroutine(_animCoroutine);
             _animCoroutine = StartCoroutine(AnimateMenuOpen());
         }
 
-        // 🔹 Уведомляем MenuPositionController
-        if (menuPositionController != null)
-        {
-            menuPositionController.OnMenuOpened();
-        }
-
+        menuPositionController?.OnMenuOpened();
         OnMenuOpened?.Invoke();
         Debug.Log("[VRMenu] Меню открыто");
     }
@@ -319,11 +209,7 @@ public class VRMenuController : MonoBehaviour
             menuObject.SetActive(false);
         }
 
-        if (menuPositionController != null)
-        {
-            menuPositionController.OnMenuClosed();
-        }
-
+        menuPositionController?.OnMenuClosed();
         OnMenuClosed?.Invoke();
         Debug.Log("[VRMenu] Меню закрыто");
     }
@@ -338,28 +224,16 @@ public class VRMenuController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Позиционирует меню перед головой
-    /// </summary>
     private void PositionMenuInFrontOfHead()
     {
         if (_headTransform == null || menuObject == null) return;
 
-        // Позиция перед головой
         Vector3 menuPosition = _headTransform.position + _headTransform.forward * menuDistance;
-
-        // Небольшое смещение вниз (чтобы не закрывало обзор)
         menuPosition += _headTransform.up * -0.1f;
 
         menuObject.transform.position = menuPosition;
-
-        // Поворот к голове
         menuObject.transform.rotation = Quaternion.LookRotation(-_headTransform.forward, Vector3.up);
-
-        // Сброс масштаба
         menuObject.transform.localScale = _originalScale;
-
-        Debug.Log($"[VRMenu] Меню позиционировано: {menuPosition}");
     }
     #endregion
 
@@ -367,18 +241,15 @@ public class VRMenuController : MonoBehaviour
     private IEnumerator AnimateMenuOpen()
     {
         if (menuObject == null) yield break;
-
         menuObject.transform.localScale = Vector3.zero;
         float elapsed = 0f;
 
         while (elapsed < animationDuration)
         {
             elapsed += Time.deltaTime;
-            float t = elapsed / animationDuration;
-            menuObject.transform.localScale = Vector3.Lerp(Vector3.zero, _originalScale, t);
+            menuObject.transform.localScale = Vector3.Lerp(Vector3.zero, _originalScale, elapsed / animationDuration);
             yield return null;
         }
-
         menuObject.transform.localScale = _originalScale;
         _animCoroutine = null;
     }
@@ -386,21 +257,26 @@ public class VRMenuController : MonoBehaviour
     private IEnumerator AnimateMenuClose()
     {
         if (menuObject == null) yield break;
-
         Vector3 startScale = menuObject.transform.localScale;
         float elapsed = 0f;
 
         while (elapsed < animationDuration * 0.5f)
         {
             elapsed += Time.deltaTime;
-            float t = elapsed / (animationDuration * 0.5f);
-            menuObject.transform.localScale = Vector3.Lerp(startScale, Vector3.zero, t);
+            menuObject.transform.localScale = Vector3.Lerp(startScale, Vector3.zero, elapsed / (animationDuration * 0.5f));
             yield return null;
         }
-
         menuObject.SetActive(false);
         menuObject.transform.localScale = _originalScale;
         _animCoroutine = null;
+    }
+    #endregion
+
+    #region Утилиты
+    private void TriggerHaptic(float strength)
+    {
+        if (xrController != null)
+            xrController.SendHapticImpulse(strength, hapticDuration);
     }
     #endregion
 }

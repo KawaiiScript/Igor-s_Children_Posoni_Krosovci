@@ -33,7 +33,7 @@ public class TeleportManager : MonoBehaviour
     private Coroutine movement = null;
     private bool _isTeleportActive = false;
     private bool _isValidTeleport = false;
-
+    public float width = 0.02f;
     private void Awake()
     {
         DebugLog("🔧 TeleportManager: Awake");
@@ -41,7 +41,7 @@ public class TeleportManager : MonoBehaviour
         lineRenderer = GetComponent<LineRenderer>();
         if (mat != null) lineRenderer.material = mat;
         lineRenderer.positionCount = 2;
-        lineRenderer.startWidth = lineRenderer.endWidth = 0.02f;
+        lineRenderer.startWidth = lineRenderer.endWidth = width;
         lineRenderer.enabled = false;
 
         sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
